@@ -1,0 +1,32 @@
+name: Google Calendar to Notion
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 매일 00:00 UTC (한국 시간 09:00)
+  workflow_dispatch:      # 수동 실행도 허용
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run script
+      env:
+        NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        DATABASE_ID: ${{ secrets.DATABASE_ID }}
+        GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+      run: |
+        echo "$GOOGLE_CREDENTIALS_JSON" > credentials.json
+        python main.py
