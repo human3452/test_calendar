@@ -139,3 +139,16 @@ if __name__ == "__main__":
 
 if summary and start and end and event_id:
     add_event_to_notion(summary, start, end, event_id)
+
+
+
+for event in events:
+    summary = event.get("summary", "제목 없음")
+    start = event.get("start", {}).get("dateTime") or event.get("start", {}).get("date")
+    end = event.get("end", {}).get("dateTime") or event.get("end", {}).get("date")
+    event_id = event.get("id")
+
+    print(f"🧾 처리 대상: {summary} | {start} ~ {end} | ID: {event_id}")  # 추가
+
+    if summary and start and end and event_id:
+        add_event_to_notion(summary, start, end, event_id)
