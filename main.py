@@ -1,3 +1,4 @@
+
 import os
 import json
 import requests
@@ -26,7 +27,7 @@ def get_calendar_service():
     )
     return build("calendar", "v3", credentials=creds)
 
-# 이번 달 일정 가져오기
+# 이번 달 일정 가져오기 (삭제 포함)
 def fetch_calendar_events():
     service = get_calendar_service()
     KST = timezone(timedelta(hours=9))
@@ -45,13 +46,14 @@ def fetch_calendar_events():
         calendarId=CALENDAR_ID,
         timeMin=time_min,
         timeMax=time_max,
+        showDeleted=True,
         singleEvents=True,
         orderBy='startTime'
     ).execute()
 
     return events_result.get('items', [])
 
-# 중복 이벤트 확인
+# 중복 확인
 def is_duplicate_event(event_id):
     url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
     payload = {
@@ -64,9 +66,9 @@ def is_duplicate_event(event_id):
     }
     res = requests.post(url, headers=headers, data=json.dumps(payload))
     results = res.json().get("results", [])
-    return len(results) > 0
+    return results[0]["id"] if results else None
 
-# 이벤트 Notion에 추가
+# Notion에 일정 추가
 def add_event_to_notion(summary, start_date_raw, end_date_raw, event_id):
     def parse_date(date_str):
         try:
@@ -80,11 +82,11 @@ def add_event_to_notion(summary, start_date_raw, end_date_raw, event_id):
     start_date = start_dt.date().isoformat()
     end_date = end_dt.date().isoformat() if end_dt else None
 
-    if is_duplicate_event(event_id):
+    page_id = is_duplicate_event(event_id)
+    if page_id:
         print(f"⏩ 중복 이벤트 건너뜀: {summary}")
         return
 
-    # 날짜 범위 속성
     date_property = {"start": start_date}
     if end_date and end_date > start_date:
         date_property["end"] = end_date
@@ -111,12 +113,26 @@ def add_event_to_notion(summary, start_date_raw, end_date_raw, event_id):
     )
 
     if response.status_code == 200:
-        if "end" in date_property:
-            print(f"✅ 등록됨: {summary} ({start_date} ~ {end_date})")
-        else:
-            print(f"✅ 등록됨: {summary} ({start_date})")
+        print(f"✅ 등록됨: {summary}")
     else:
         print(f"❌ 등록 실패: {summary} / {response.status_code} - {response.text}")
+
+# 삭제된 이벤트 아카이브 처리
+def archive_event_in_notion(event_id):
+    page_id = is_duplicate_event(event_id)
+    if not page_id:
+        print(f"⚠️ 삭제 대상 없음 (event_id: {event_id})")
+        return
+
+    archive_url = f"https://api.notion.com/v1/pages/{page_id}"
+    archive_payload = { "archived": True }
+
+    response = requests.patch(archive_url, headers=headers, data=json.dumps(archive_payload))
+
+    if response.status_code == 200:
+        print(f"🗑️ Notion에서 삭제됨 (event_id: {event_id})")
+    else:
+        print(f"❌ Notion 삭제 실패: {response.status_code} / {response.text}")
 
 # 실행
 if __name__ == "__main__":
@@ -131,8 +147,12 @@ if __name__ == "__main__":
             start = event.get("start", {}).get("dateTime") or event.get("start", {}).get("date")
             end = event.get("end", {}).get("dateTime") or event.get("end", {}).get("date")
             event_id = event.get("id")
+            status = event.get("status")
 
-            print(f"🧾 처리 대상: {summary} | {start} ~ {end} | ID: {event_id}")
+            if not event_id or not start:
+                continue
 
-            if summary and start and event_id:
+            if status == "cancelled":
+                archive_event_in_notion(event_id)
+            else:
                 add_event_to_notion(summary, start, end, event_id)
