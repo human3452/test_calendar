@@ -1,7 +1,7 @@
 name: Google Calendar to Notion
 
 on:
-  schedule:
+  # schedule:
     # - cron: '*/5 * * * *'  # 매 5분마다 (UTC 기준)
   workflow_dispatch:      # 수동 실행도 허용
 
