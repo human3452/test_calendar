@@ -69,7 +69,27 @@ def is_duplicate_event(event_id):
     return len(results) > 0
 
 # Notion에 일정 추가
-def add_event_to_notion(summary, start_date, event_id):
+from datetime import datetime, timedelta
+
+def add_event_to_notion(summary, start_date_raw, end_date_raw, event_id):
+    # 날짜 문자열을 datetime 객체로 변환
+    def parse_date(date_str):
+        try:
+            return datetime.fromisoformat(date_str)
+        except:
+            return datetime.strptime(date_str, "%Y-%m-%d")
+
+    start_dt = parse_date(start_date_raw)
+    end_dt = parse_date(end_date_raw)
+
+    # 종료일 -1일 보정
+    end_dt = end_dt - timedelta(days=1)
+
+    # 다시 ISO 형식 문자열로 변환
+    start_date = start_dt.date().isoformat()
+    end_date = end_dt.date().isoformat()
+
+    # 중복 확인
     if is_duplicate_event(event_id):
         print(f"⏩ 중복 이벤트 건너뜀: {summary}")
         return
@@ -81,7 +101,10 @@ def add_event_to_notion(summary, start_date, event_id):
                 "title": [{ "text": { "content": summary } }]
             },
             "진행일": {
-                "date": { "start": start_date }
+                "date": {
+                    "start": start_date,
+                    "end": end_date  # ⬅️ 기간 설정
+                }
             },
             "event_id": {
                 "rich_text": [{ "text": { "content": event_id } }]
@@ -96,7 +119,7 @@ def add_event_to_notion(summary, start_date, event_id):
     )
 
     if response.status_code == 200:
-        print(f"✅ 등록됨: {summary}")
+        print(f"✅ 등록됨: {summary} ({start_date} ~ {end_date})")
     else:
         print(f"❌ 등록 실패: {summary} / {response.status_code} - {response.text}")
 
@@ -111,7 +134,8 @@ if __name__ == "__main__":
         for event in events:
             summary = event.get("summary", "제목 없음")
             start = event.get("start", {}).get("dateTime") or event.get("start", {}).get("date")
+            end = event.get("end", {}).get("dateTime") or event.get("end", {}).get("date")
             event_id = event.get("id")
 
-            if summary and start and event_id:
-                add_event_to_notion(summary, start, event_id)
+if summary and start and end and event_id:
+    add_event_to_notion(summary, start, end, event_id)
