@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 import requests
-
+from datetime import datetime, timedelta, timezone  # 추가 또는 수정
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -31,8 +31,8 @@ def get_calendar_service():
 def fetch_calendar_events():
     service = get_calendar_service()
 
-    KST = datetime.timezone(datetime.timedelta(hours=9))
-    now = datetime.datetime.now(tz=KST)
+    KST = timezone(timedelta(hours=9))  # ← 수정됨
+    now = datetime.now(tz=KST)    
 
     start_of_month = now.replace(day=1)
     if now.month == 12:
@@ -69,7 +69,7 @@ def is_duplicate_event(event_id):
     return len(results) > 0
 
 # Notion에 일정 추가
-from datetime import datetime, timedelta
+
 
 def add_event_to_notion(summary, start_date_raw, end_date_raw, event_id):
     # 날짜 문자열을 datetime 객체로 변환
