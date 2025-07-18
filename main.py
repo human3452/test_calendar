@@ -1,8 +1,7 @@
 import os
 import json
-import datetime
 import requests
-from datetime import datetime, timedelta, timezone  # 추가 또는 수정
+from datetime import datetime, timedelta, timezone
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -27,12 +26,11 @@ def get_calendar_service():
     )
     return build("calendar", "v3", credentials=creds)
 
-# 이번 달 1일부터 말일까지 일정 가져오기
+# 이번 달 일정 가져오기
 def fetch_calendar_events():
     service = get_calendar_service()
-
-    KST = timezone(timedelta(hours=9))  # ← 수정됨
-    now = datetime.now(tz=KST)    
+    KST = timezone(timedelta(hours=9))
+    now = datetime.now(tz=KST)
 
     start_of_month = now.replace(day=1)
     if now.month == 12:
@@ -53,7 +51,7 @@ def fetch_calendar_events():
 
     return events_result.get('items', [])
 
-# Notion DB에 이미 등록된 event_id인지 확인
+# 중복 이벤트 확인
 def is_duplicate_event(event_id):
     url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
     payload = {
@@ -68,15 +66,13 @@ def is_duplicate_event(event_id):
     results = res.json().get("results", [])
     return len(results) > 0
 
-# Notion에 일정 추가
-
-
+# 이벤트 Notion에 추가
 def add_event_to_notion(summary, start_date_raw, end_date_raw, event_id):
     def parse_date(date_str):
         try:
-            return datetime.datetime.fromisoformat(date_str)
+            return datetime.fromisoformat(date_str)
         except ValueError:
-            return datetime.datetime.strptime(date_str, "%Y-%m-%d")
+            return datetime.strptime(date_str, "%Y-%m-%d")
 
     start_dt = parse_date(start_date_raw)
     end_dt = parse_date(end_date_raw) - timedelta(days=1) if end_date_raw else None
@@ -88,7 +84,7 @@ def add_event_to_notion(summary, start_date_raw, end_date_raw, event_id):
         print(f"⏩ 중복 이벤트 건너뜀: {summary}")
         return
 
-    # 날짜 속성 설정
+    # 날짜 범위 속성
     date_property = {"start": start_date}
     if end_date and end_date > start_date:
         date_property["end"] = end_date
@@ -136,18 +132,7 @@ if __name__ == "__main__":
             end = event.get("end", {}).get("dateTime") or event.get("end", {}).get("date")
             event_id = event.get("id")
 
-if summary and start and end and event_id:
-    add_event_to_notion(summary, start, end, event_id)
+            print(f"🧾 처리 대상: {summary} | {start} ~ {end} | ID: {event_id}")
 
-
-
-for event in events:
-    summary = event.get("summary", "제목 없음")
-    start = event.get("start", {}).get("dateTime") or event.get("start", {}).get("date")
-    end = event.get("end", {}).get("dateTime") or event.get("end", {}).get("date")
-    event_id = event.get("id")
-
-    print(f"🧾 처리 대상: {summary} | {start} ~ {end} | ID: {event_id}")  # 추가
-
-    if summary and start and end and event_id:
-        add_event_to_notion(summary, start, end, event_id)
+            if summary and start and event_id:
+                add_event_to_notion(summary, start, end, event_id)
