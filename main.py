@@ -75,7 +75,7 @@ def add_event_to_notion(summary, start_date_raw, end_date_raw, event_id):
             return datetime.strptime(date_str, "%Y-%m-%d")
 
     start_dt = parse_date(start_date_raw)
-    end_dt = parse_date(end_date_raw) - timedelta(days=1) if end_date_raw else None
+    end_dt = parse_date(end_date_raw) if end_date_raw else None
 
     start_date = start_dt.date().isoformat()
     end_date = end_dt.date().isoformat() if end_dt else None
